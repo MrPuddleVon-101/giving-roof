@@ -1,59 +1,124 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { PHASES, METRICS } from '../data/timeline'
 import { gsap, motionOn } from '../motion/motion'
-import { useReveal } from '../motion/useReveal'
-import { Split } from './Split'
+import { useInView } from './scenes/util'
 import { Ext } from './Icons'
 
-/** Global Goals, the proposed sequence and the empty evidence dashboard, in one screen. */
+// The proposed year as an arch. Month 0 stands at the left foot, month 12 at the right.
+const SPANS: [number, number][] = [[0, 0.6], [0.6, 2], [2, 4], [4, 8], [8, 12]]
+const CX = 600
+const CY = 590
+const R = 520
+const pt = (m: number, r = R) => {
+  const a = Math.PI * (1 - m / 12)
+  return [CX + Math.cos(a) * r, CY - Math.sin(a) * r]
+}
+const arc = (a: number, b: number, r = R) => {
+  const [x0, y0] = pt(a, r)
+  const [x1, y1] = pt(b, r)
+  return `M${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1}`
+}
+
 export function Next() {
   const root = useRef<HTMLElement>(null)
-  const [phase, setPhase] = useState(0)
-  useReveal(root)
-  useLayoutEffect(() => {
-    const el = root.current!
-    if (!motionOn()) return
-    const axis = window.matchMedia('(max-width: 900px)').matches ? 'scaleY' : 'scaleX'
-    const ctx = gsap.context(() => {
-      gsap.fromTo('.tl-progress', { [axis]: 0 }, { [axis]: 1, ease: 'none', scrollTrigger: { trigger: '.timeline', start: 'top 80%', end: 'bottom 50%', scrub: 0.6 } })
-    }, el)
-    return () => ctx.revert()
-  }, [])
+  const svg = useRef<SVGSVGElement>(null)
+  const [m, setM] = useState(0)
+  const touched = useRef(false)
+  const held = useRef(false)
+  const inView = useInView(svg, 0.5)
+  const phase = Math.max(0, SPANS.findIndex(([, b]) => m <= b + 0.001))
   const p = PHASES[phase]
+
+  // the year runs once by itself, then waits for you
+  useEffect(() => {
+    if (!inView || touched.current || !motionOn()) return
+    const o = { m: 0 }
+    const tw = gsap.to(o, { m: 12, duration: 9, ease: 'none', onUpdate: () => (touched.current ? tw.kill() : setM(o.m)) })
+    return () => void tw.kill()
+  }, [inView])
+
+  const from = (e: PointerEvent) => {
+    const r = svg.current!.getBoundingClientRect()
+    const x = ((e.clientX - r.left) / r.width) * 1200 - CX
+    const y = CY - ((e.clientY - r.top) / r.height) * 660
+    const a = Math.atan2(Math.max(0, y), x)
+    setM(Math.max(0, Math.min(12, 12 * (1 - a / Math.PI))))
+  }
+  const key = (e: KeyboardEvent) => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0
+    if (!d) return
+    e.preventDefault()
+    touched.current = true
+    setM((v) => Math.max(0, Math.min(12, Math.round(v) + d)))
+  }
+  const [hx, hy] = pt(m)
   return (
-    <section className="next2" id="next" ref={root} aria-labelledby="next-title">
-      <Split as="h2" id="next-title" className="display-2" text="What comes next." />
-
-      <div className="timeline">
-        <div className="tl-track" aria-hidden="true">
-          <span className="tl-progress" />
-        </div>
-        <ol className="tl-list">
-          {PHASES.map((ph, i) => (
-            <li key={ph.when} className="tl-item" data-active={phase === i}>
-              <button type="button" className="tl-btn" aria-expanded={phase === i} onClick={() => setPhase(i)} onPointerEnter={() => setPhase(i)}>
-                <span className="tl-node" aria-hidden="true" />
-                <span className="tl-when">{ph.when}</span>
-                <span className="tl-title">{ph.title}</span>
-              </button>
-            </li>
+    <section className="year" id="next" ref={root} aria-labelledby="next-title">
+      <h2 id="next-title">If the school says yes.</h2>
+      <div className="year-arch">
+        <svg
+          ref={svg}
+          viewBox="0 0 1200 660"
+          onPointerDown={(e) => {
+            touched.current = true
+            held.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            from(e)
+          }}
+          onPointerMove={(e) => held.current && from(e)}
+          onPointerUp={() => (held.current = false)}
+          onPointerCancel={() => (held.current = false)}
+          data-cursor="drag"
+        >
+          {SPANS.map(([a, b], i) => (
+            <path key={i} d={arc(a + 0.04, b - 0.04)} className="ya-seg" data-on={i === phase} />
           ))}
-        </ol>
-        <p className="tl-detail" aria-live="polite" key={phase}>
-          {p.body}
-        </p>
-        <p className="fine">Only after the school agrees. Not a construction schedule.</p>
+          {m > 0.06 && <path d={arc(0.02, m)} className="ya-fill" />}
+          {Array.from({ length: 13 }, (_, k) => {
+            const [x, y] = pt(k, R - 58)
+            return (
+              <text key={k} x={x} y={y + 7} textAnchor="middle" className="ya-num" data-on={Math.round(m) === k}>
+                {k}
+              </text>
+            )
+          })}
+          <g
+            transform={`translate(${hx} ${hy})`}
+            className="ya-sun"
+            role="slider"
+            tabIndex={0}
+            aria-label="Month of the proposed year"
+            aria-valuemin={0}
+            aria-valuemax={12}
+            aria-valuenow={Math.round(m)}
+            aria-valuetext={`${p.when}: ${p.title}`}
+            onKeyDown={key}
+          >
+            <circle r="60" className="ya-halo" />
+            <circle r="36" />
+          </g>
+        </svg>
+        <div className="year-text" aria-live="polite">
+          <p className="yt-when">{p.when}</p>
+          <p className="yt-title" key={phase}>{p.title}</p>
+          <p className="yt-body">{p.body}</p>
+        </div>
       </div>
+      <p className="year-note">A proposed order of work, not a construction schedule. Drag the sun along the year.</p>
 
-      <div className="dash2" aria-label="Evidence dashboard mock-up">
-        {METRICS.map((m) => (
-          <div key={m.key} className="d2">
-            <span className="d2-unit">{m.unit}</span>
-            <span className="d2-label">{m.label}</span>
-            <i aria-hidden="true" />
+      <div className="logbook" aria-label="Evidence dashboard mock-up, empty">
+        {METRICS.map((x) => (
+          <div key={x.key}>
+            <span className="lb-digits" aria-hidden="true">
+              {[0, 1, 2, 3].map((k) => (
+                <i key={k} />
+              ))}
+            </span>
+            <b>{x.unit}</b>
+            <span>{x.label}</span>
           </div>
         ))}
-        <p className="d2-status">Data collection begins after pilot approval</p>
+        <p>Data collection begins after pilot approval</p>
       </div>
 
       <p className="campus-line">

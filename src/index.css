@@ -16,7 +16,7 @@
   --water: #1b82bb;
   --slate: #557379;
   --rule: rgba(20, 33, 61, 0.16);
-  --serif: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
+  --serif: 'Archivo Variable', 'Helvetica Neue', Arial, sans-serif;
   --sans: 'Schibsted Grotesk Variable', 'Helvetica Neue', Arial, sans-serif;
   --gutter: clamp(16px, 4vw, 64px);
   --mast: 78px;
@@ -48,7 +48,7 @@ body {
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.55;
-  font-variation-settings: 'wdth' 100;
+  font-variation-settings: normal;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
@@ -189,7 +189,7 @@ html[data-motion='off'] *::after {
   font-family: var(--sans);
   font-size: 15px;
   font-weight: 650;
-  font-variation-settings: 'wdth' 108;
+  font-variation-settings: normal;
   text-decoration: none;
   overflow: hidden;
   isolation: isolate;
@@ -524,7 +524,7 @@ html:not(.has-cursor) .cursor-dot {
   margin: 26px 0 36px;
   font-size: clamp(19px, 1.6vw, 25px);
   font-weight: 560;
-  font-variation-settings: 'wdth' 104;
+  font-variation-settings: normal;
   color: var(--ink-2);
 }
 .hero-cta {
@@ -1363,7 +1363,7 @@ html:not(.has-cursor) .cursor-dot {
   text-align: center;
   padding: 6px 2px 4px;
   font-family: var(--sans);
-  font-variation-settings: 'wdth' 125;
+  font-variation-settings: normal;
   font-weight: 760;
   font-size: clamp(18px, 1.75vw, 28px);
   line-height: 1;
@@ -1831,7 +1831,7 @@ input[type='range']:active::-webkit-slider-thumb {
   background: var(--sdg);
   color: #fff;
   font-family: var(--sans);
-  font-variation-settings: 'wdth' 125;
+  font-variation-settings: normal;
   font-weight: 800;
   font-size: 40px;
   transition: transform 0.5s var(--ease);

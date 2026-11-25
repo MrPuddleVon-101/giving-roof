@@ -40,7 +40,7 @@ export function Closing() {
         <a className="btn btn-solid" href="#explorer" onClick={(e) => { e.preventDefault(); scrollToId('explorer') }}>
           Explore the roof again <Arrow />
         </a>
-        <a className="btn btn-line magnetic" href="#posters" onClick={(e) => { e.preventDefault(); scrollToId('posters') }}>
+        <a className="btn btn-line magnetic" href="#walk" onClick={(e) => { e.preventDefault(); scrollToId('walk') }}>
           See the campaign
         </a>
       </div>

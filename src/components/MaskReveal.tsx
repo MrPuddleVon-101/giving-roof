@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { gsap } from '../motion/motion'
 import { useStore } from '../state/store'
 
-/** Pinned transition: a small circle on the page grows until the roof fills the screen. */
+/** Pinned transition: a small arch on the page grows until the roof fills the screen. */
 export function MaskReveal() {
   const root = useRef<HTMLElement>(null)
   const motionOff = useStore((s) => s.motionOff)
@@ -11,7 +11,7 @@ export function MaskReveal() {
     if (motionOff) return
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ scrollTrigger: { trigger: el, start: 'top top', end: '+=70%', scrub: 0.8, pin: true, anticipatePin: 1 } })
-      tl.fromTo('.mask-img', { clipPath: 'circle(7% at 50% 58%)' }, { clipPath: 'circle(76% at 50% 50%)', ease: 'power2.inOut', duration: 1 }, 0)
+      tl.fromTo('.mask-img', { '--t': 52, '--s': 43, '--b': 18, '--r': 7 }, { '--t': 0, '--s': 0, '--b': 0, '--r': 0, ease: 'power2.inOut', duration: 1 }, 0)
         .fromTo('.mask-img img', { scale: 1.6 }, { scale: 1.05, ease: 'power2.inOut', duration: 1 }, 0)
         .fromTo('.mask-title .ci', { yPercent: 0, color: '#14213d' }, { color: '#ffffff', duration: 0.5, stagger: 0.01 }, 0.25)
         .fromTo('.mask-title', { scale: 1.25 }, { scale: 1, duration: 1, ease: 'power2.out' }, 0)
@@ -41,7 +41,7 @@ export function MaskReveal() {
           </span>
         ))}
       </h2>
-      <p className="mask-tag">Group 11A concept image</p>
+      <p className="mask-tag">Concept image</p>
     </section>
   )
 }

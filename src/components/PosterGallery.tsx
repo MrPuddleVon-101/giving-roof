@@ -45,7 +45,7 @@ export function PosterGallery() {
           { scale: 0.78, rotate: i % 2 ? 5 : -5, y: i % 2 ? 60 : -40 },
           { scale: 1, rotate: 0, y: 0, ease: 'none', scrollTrigger: { trigger: f, containerAnimation: tw, start: 'left right', end: 'center center', scrub: true } },
         )
-        gsap.fromTo(f.querySelector('img'), { xPercent: -8 }, { xPercent: 8, ease: 'none', scrollTrigger: { trigger: f, containerAnimation: tw, start: 'left right', end: 'right left', scrub: true } })
+        if (f.classList.contains('wf-photo')) gsap.fromTo(f.querySelector('img'), { xPercent: -8 }, { xPercent: 8, ease: 'none', scrollTrigger: { trigger: f, containerAnimation: tw, start: 'left right', end: 'right left', scrub: true } })
       })
     })
     return () => mm.revert()

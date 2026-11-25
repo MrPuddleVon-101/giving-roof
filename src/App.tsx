@@ -4,8 +4,7 @@ import { prefersReducedMotion, startSmoothScroll, stopSmoothScroll, finishAllRev
 import { Loader } from './components/Loader'
 import { Cursor } from './components/Cursor'
 import { Masthead } from './components/Masthead'
-import { Hero } from './components/Hero'
-import { Returns } from './components/Returns'
+import { Day } from './components/day/Day'
 import { useGlobalFx } from './motion/useGlobalFx'
 import { Explorer } from './components/Explorer'
 import { MaskReveal } from './components/MaskReveal'
@@ -71,8 +70,7 @@ export default function App() {
       </div>
       <Masthead />
       <main>
-        <Hero ready={ready} />
-        <Returns />
+        <Day ready={ready} />
         <PosterGallery />
         <MaskReveal />
         <Explorer />

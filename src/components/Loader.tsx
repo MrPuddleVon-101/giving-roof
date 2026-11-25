@@ -16,10 +16,11 @@ export function Loader({ onDone }: { onDone: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    const el = ref.current!
+    const el = ref.current
+    if (!el) return
     const off = useStore.getState().motionOff
     const img = new Image()
-    img.src = window.innerWidth > 1000 ? 'img/hero-1672.webp' : 'img/hero-960.webp'
+    img.src = 'img/day/hero-day.webp'
     const loaded = new Promise<void>((res) => {
       if (img.complete) res()
       img.onload = img.onerror = () => res()

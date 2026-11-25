@@ -30,22 +30,33 @@ export function stopSmoothScroll() {
   lenis = null
 }
 
-export function headerOffset() {
-  const h = document.querySelector<HTMLElement>('.masthead')
-  return h ? h.offsetHeight : 0
+/** Sections that live inside a pinned sequence register their own scroll position. */
+const anchors = new Map<string, () => number | null>()
+export function setAnchor(id: string, fn: (() => number | null) | null) {
+  if (fn) anchors.set(id, fn)
+  else anchors.delete(id)
+}
+/** Page y for an id, honouring pinned sequences. */
+export function anchorY(id: string): number | null {
+  const y = anchors.get(id)?.()
+  if (y != null) return y
+  let el: HTMLElement | null = document.getElementById(id)
+  if (!el) return null
+  // a pinned element is fixed while active: measure its spacer instead
+  const spacer = el.closest<HTMLElement>('.pin-spacer')
+  if (spacer && spacer.firstElementChild === el) el = spacer
+  return el.getBoundingClientRect().top + window.scrollY
 }
 
 /** Scroll to an element id; native jump when motion is paused. */
 export function scrollToId(id: string) {
-  const el = document.getElementById(id)
-  if (!el) return
-  const off = -headerOffset() + 1
-  if (lenis && !useStore.getState().motionOff) lenis.scrollTo(el, { offset: off, duration: 1.6 })
-  else window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + off, behavior: 'auto' })
+  const y = anchorY(id)
+  if (y == null) return
+  scrollToY(y + 1)
 }
 
 export function scrollToY(y: number) {
-  if (lenis && !useStore.getState().motionOff) lenis.scrollTo(y, { duration: 1.4 })
+  if (lenis && !useStore.getState().motionOff) lenis.scrollTo(y, { duration: 1.6 })
   else window.scrollTo({ top: y, behavior: 'auto' })
 }
 
