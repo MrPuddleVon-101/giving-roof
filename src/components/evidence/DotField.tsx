@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { gsap, scrollToY, setAnchor } from '../../motion/motion'
+import { hold, scrollToY, setAnchor, ScrollTrigger } from '../../motion/motion'
 import { useStore } from '../../state/store'
 import { PUBLISHED, MONTHLY_RAIN_MM, ANNUAL_RAIN_MM } from '../../data/research'
 import { sourceById, type SourceId } from '../../data/sources'
@@ -107,6 +107,7 @@ function labels(s: number, b: Box): Label[] {
 export function DotField() {
   const root = useRef<HTMLDivElement>(null)
   const cv = useRef<HTMLCanvasElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
   const [step, setStep] = useState(0)
   const [month, setMonth] = useState<number | null>(null)
   const stepRef = useRef(0)
@@ -119,23 +120,13 @@ export function DotField() {
 
   useLayoutEffect(() => {
     if (motionOff) return
-    const ctx = gsap.context(() => {
-      const tw = gsap.to({}, {
-        scrollTrigger: {
-          trigger: root.current!,
-          start: 'top top',
-          end: () => `+=${innerHeight * 2.6}`,
-          pin: true,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          onUpdate: (s) => setStep(Math.min(4, Math.floor(s.progress * 5))),
-        },
-      })
-      st.current = tw.scrollTrigger!
-    })
+    const pin = hold(wrap.current!, root.current!, () => innerHeight * 2.2)
+    const tr = ScrollTrigger.create({ ...pin.vars, scrub: undefined, onUpdate: (s) => setStep(Math.min(4, Math.floor(s.progress * 5))) })
+    st.current = tr
     setAnchor('research', () => st.current?.start ?? null)
     return () => {
-      ctx.revert()
+      tr.kill()
+      pin.release()
       st.current = null
       setAnchor('research', null)
     }
@@ -152,7 +143,7 @@ export function DotField() {
     const ptr = { x: -999, y: -999 }
     const size = () => {
       const r = c.getBoundingClientRect()
-      const k = Math.min(devicePixelRatio || 1, 2)
+      const k = Math.min(devicePixelRatio || 1, 1.5)
       W = r.width
       H = r.height
       c.width = W * k
@@ -167,15 +158,23 @@ export function DotField() {
       Y[i] = -Math.random() * H
       C.set(CREAM, i * 3)
     }
+    let still = 0
+    const bucket = new Map<number, number[]>()
+    let lastHm: number | null = -1
     const paint = (dt: number, snap: boolean) => {
       const s = stepRef.current
       if (s !== cur) {
         tg = Array.from({ length: N }, (_, i) => layout(s, box, i))
         cur = s
+        still = 0
         since = 0
         la = 0
       }
       since += dt
+      // settled and untouched: keep the last picture
+      if (cur !== -1 && !snap && still > 20 && since > 2 && ptr.x < -900 && monthRef.current === lastHm) return
+      lastHm = monthRef.current
+      let move = 0
       la = Math.min(1, snap ? 1 : since > 0.7 ? la + dt * 2 : 0)
       g.clearRect(0, 0, W, H)
       const hm = s === 4 ? monthRef.current : null
@@ -197,6 +196,7 @@ export function DotField() {
             VX[i] += (dx / d) * f
             VY[i] += (dy / d) * f
           }
+          move = Math.max(move, Math.abs(VX[i]) + Math.abs(VY[i]))
           X[i] += VX[i] * dt
           Y[i] += VY[i] * dt
           const e = Math.min(1, dt * 5)
@@ -206,11 +206,26 @@ export function DotField() {
         }
         if (A[i] < 0.02 || R[i] < 0.15) continue
         const dim = hm != null && i < RAIN.length && RAIN[i].m !== hm ? 0.28 : 1
-        g.fillStyle = `rgba(${C[i * 3] | 0},${C[i * 3 + 1] | 0},${C[i * 3 + 2] | 0},${A[i] * dim})`
-        g.beginPath()
-        g.arc(X[i], Y[i], R[i], 0, 6.2832)
-        g.fill()
+        // dots of the same shade are drawn in one go
+        const key = ((C[i * 3] >> 3) << 14) | ((C[i * 3 + 1] >> 3) << 9) | ((C[i * 3 + 2] >> 3) << 4) | Math.round(A[i] * dim * 15)
+        let list = bucket.get(key)
+        if (!list) bucket.set(key, (list = []))
+        list.push(i)
       }
+      bucket.forEach((list, key) => {
+        if (!list.length) return
+        const i0 = list[0]
+        g.fillStyle = `rgba(${C[i0 * 3] | 0},${C[i0 * 3 + 1] | 0},${C[i0 * 3 + 2] | 0},${(key & 15) / 15})`
+        g.beginPath()
+        for (const i of list) {
+          g.moveTo(X[i] + R[i], Y[i])
+          g.arc(X[i], Y[i], R[i], 0, 6.2832)
+        }
+        g.fill()
+        list.length = 0
+      })
+      if (bucket.size > 400) bucket.clear()
+      still = move < 1.5 && !snap ? still + 1 : 0
       g.globalAlpha = la
       g.fillStyle = '#f6efde'
       g.font = `650 ${W > 900 ? 16 : 13}px "Schibsted Grotesk Variable", sans-serif`
@@ -262,6 +277,7 @@ export function DotField() {
     ro.observe(c)
     return () => {
       cancelAnimationFrame(raf)
+      if (!motionOff) c.width = c.height = 1 // hand the memory back; it is resized on return
       ro.disconnect()
       host.removeEventListener('pointermove', mv)
       host.removeEventListener('pointerleave', lv)
@@ -275,6 +291,7 @@ export function DotField() {
   const s = STEPS[step]
   const src = sourceById(s.src)
   return (
+    <div className="pinw" ref={wrap}>
     <div className="dots" ref={root}>
       <canvas ref={cv} aria-hidden="true" />
       <div className="dots-text">
@@ -311,6 +328,7 @@ export function DotField() {
           <li key={d.m}>{`${d.m}: ${d.mm} mm mean rainfall, Changi, 1991 to 2020`}</li>
         ))}
       </ul>
+    </div>
     </div>
   )
 }

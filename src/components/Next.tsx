@@ -22,11 +22,22 @@ const arc = (a: number, b: number, r = R) => {
 export function Next() {
   const root = useRef<HTMLElement>(null)
   const svg = useRef<SVGSVGElement>(null)
-  const [m, setM] = useState(0)
+  const [m, setMonth] = useState(0) // whole months only; the sun itself moves without React
+  const [phase, setPhase] = useState(0)
+  const live = useRef(0)
+  const sunEl = useRef<SVGGElement>(null)
+  const fillEl = useRef<SVGPathElement>(null)
+  const setM = (v: number) => {
+    live.current = v
+    const [x, y] = pt(v)
+    sunEl.current?.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`)
+    if (fillEl.current) fillEl.current.style.strokeDashoffset = String(1 - v / 12)
+    setMonth(Math.round(v))
+    setPhase(Math.max(0, SPANS.findIndex(([, b]) => v <= b + 0.001)))
+  }
   const touched = useRef(false)
   const held = useRef(false)
   const inView = useInView(svg, 0.5)
-  const phase = Math.max(0, SPANS.findIndex(([, b]) => m <= b + 0.001))
   const p = PHASES[phase]
 
   // the year runs once by itself, then waits for you
@@ -49,9 +60,9 @@ export function Next() {
     if (!d) return
     e.preventDefault()
     touched.current = true
-    setM((v) => Math.max(0, Math.min(12, Math.round(v) + d)))
+    setM(Math.max(0, Math.min(12, Math.round(live.current) + d)))
   }
-  const [hx, hy] = pt(m)
+  const [hx, hy] = pt(0)
   return (
     <section className="year" id="next" ref={root} aria-labelledby="next-title">
       <h2 id="next-title">If the school says yes.</h2>
@@ -73,16 +84,17 @@ export function Next() {
           {SPANS.map(([a, b], i) => (
             <path key={i} d={arc(a + 0.04, b - 0.04)} className="ya-seg" data-on={i === phase} />
           ))}
-          {m > 0.06 && <path d={arc(0.02, m)} className="ya-fill" />}
+          <path ref={fillEl} d={arc(0.001, 11.999)} className="ya-fill" pathLength={1} />
           {Array.from({ length: 13 }, (_, k) => {
             const [x, y] = pt(k, R - 58)
             return (
-              <text key={k} x={x} y={y + 7} textAnchor="middle" className="ya-num" data-on={Math.round(m) === k}>
+              <text key={k} x={x} y={y + 7} textAnchor="middle" className="ya-num" data-on={m === k}>
                 {k}
               </text>
             )
           })}
           <g
+            ref={sunEl}
             transform={`translate(${hx} ${hy})`}
             className="ya-sun"
             role="slider"
@@ -90,7 +102,7 @@ export function Next() {
             aria-label="Month of the proposed year"
             aria-valuemin={0}
             aria-valuemax={12}
-            aria-valuenow={Math.round(m)}
+            aria-valuenow={m}
             aria-valuetext={`${p.when}: ${p.title}`}
             onKeyDown={key}
           >

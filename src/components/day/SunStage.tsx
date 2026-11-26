@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent } from 'react'
 import { useLoop } from '../scenes/util'
 import { useStore } from '../../state/store'
 import { COLS, ROWS } from './data'
-import { fitCanvas, inRender } from './util'
+import { useRelease, fitCanvas, inRender } from './util'
 import { StageText } from './StageText'
 
 const W = 1672
@@ -39,7 +39,7 @@ const onCable = (d: number): Pt => {
 }
 
 /** Sweep sunlight over the real canopy. Panels charge, the cable carries it away, clouds steal it back. */
-export function SunStage({ active }: { active: boolean }) {
+export function SunStage({ active, near }: { active: boolean; near: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const cv = useRef<HTMLCanvasElement>(null)
   const beam = useRef<HTMLDivElement>(null)
@@ -50,6 +50,7 @@ export function SunStage({ active }: { active: boolean }) {
   const cloud = useRef(-500)
   const [lit, setLit] = useState(0)
   const motionOff = useStore((s) => s.motionOff)
+  useRelease(cv, near || motionOff)
   const total = cells.current.length
 
   useLoop(active && !motionOff, (dt, t) => {
@@ -138,11 +139,11 @@ export function SunStage({ active }: { active: boolean }) {
     <section className="dstage st-sun" id="rp-solar" aria-labelledby="h-solar" onPointerMove={move} onPointerDown={move}>
       <div className="stage-in">
         <div className="cover" style={{ ['--fx' as string]: 0.6, ['--fy' as string]: 0.5 }}>
-          <img src="img/roof-1672.webp" alt="Concept render of the roof wing: elevated solar panels on steel posts above dense low planting, with timber raised beds in full sun beside the path." loading="lazy" draggable={false} />
+          <img src="img/roof-1672.webp" alt="Concept render of the roof wing: elevated solar panels on steel posts above dense low planting, with timber raised beds in full sun beside the path." decoding="async" draggable={false} />
         </div>
         <p className="stage-word sw-sun" aria-hidden="true">Sunlight</p>
         <div className="cover" ref={box} style={{ ['--fx' as string]: 0.6, ['--fy' as string]: 0.5 }}>
-          <img src="img/day/roof-fg.webp" alt="" loading="lazy" draggable={false} />
+          <img src="img/day/roof-fg.webp" alt="" decoding="async" draggable={false} />
           <div className="cloud-band" ref={cloudEl} aria-hidden="true" />
           <canvas ref={cv} aria-hidden="true" />
           <div className="beam" ref={beam} aria-hidden="true" />

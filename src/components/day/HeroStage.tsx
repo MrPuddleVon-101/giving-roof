@@ -26,6 +26,8 @@ export function HeroStage({ ready }: { ready: boolean }) {
     const day = smooth(0.08, 0.5, e)
     const low = smooth(0.02, 0.3, e) * (1 - smooth(0.35, 0.85, e))
     const s = el.style
+    const lo = low > 0.01
+    if ((el.dataset.low === '1') !== lo) el.dataset.low = lo ? '1' : '0'
     s.setProperty('--day', day.toFixed(3))
     s.setProperty('--noon', smooth(0.45, 0.95, e).toFixed(3))
     s.setProperty('--low', low.toFixed(3))
@@ -65,13 +67,17 @@ export function HeroStage({ ready }: { ready: boolean }) {
   // depth: sky, sun, lettering and building each move by a different amount
   useEffect(() => {
     const el = root.current!
+    const q = (s: string, p: string, d: number) => gsap.quickTo(el.querySelector(s), p, { duration: d, ease: 'power3.out' })
+    const tx = q('.hs-title', 'x', 1), ty = q('.hs-title', 'y', 1), fx = q('.hs-fgwrap', 'x', 1), fy = q('.hs-fgwrap', 'y', 1), cx = q('.hs-clouds', 'x', 1.4)
     const mv = (e: globalThis.PointerEvent) => {
       if (!motionOn() || e.pointerType !== 'mouse') return
       const x = e.clientX / innerWidth - 0.5
       const y = e.clientY / innerHeight - 0.5
-      gsap.to('.hs-title', { x: x * 26, y: y * 12, duration: 1.6, ease: 'power3.out', overwrite: 'auto' })
-      gsap.to('.hs-fgwrap', { x: x * -14, y: y * -7, duration: 1.6, ease: 'power3.out', overwrite: 'auto' })
-      gsap.to('.hs-clouds', { x: x * 44, duration: 2.2, ease: 'power3.out', overwrite: 'auto' })
+      tx(x * 26)
+      ty(y * 12)
+      fx(x * -14)
+      fy(y * -7)
+      cx(x * 44)
     }
     el.addEventListener('pointermove', mv)
     return () => el.removeEventListener('pointermove', mv)

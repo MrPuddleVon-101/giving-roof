@@ -36,7 +36,7 @@ export function Cursor() {
     const down = () => ring.current?.classList.add('down')
     const up = () => ring.current?.classList.remove('down')
     const loop = () => {
-      const k = useStore.getState().motionOff ? 1 : 0.18
+      const k = useStore.getState().motionOff ? 1 : 0.34
       r.x += (p.x - r.x) * k
       r.y += (p.y - r.y) * k
       r.s += (target - r.s) * (useStore.getState().motionOff ? 1 : 0.2)

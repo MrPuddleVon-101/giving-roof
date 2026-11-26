@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { CameraControls, CameraControlsImpl } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useStore } from '../state/store'
@@ -121,5 +121,16 @@ export function CameraRig() {
     c.rotate(d.dir * dt * 0.035, 0, false)
   })
 
-  return <CameraControls ref={ref} makeDefault />
+  // The page owns the wheel. camera-controls would add a blocking wheel listener, which makes the
+  // browser wait for the 3D before every scroll, so hand it an element that drops that one event.
+  const gl = useThree((s) => s.gl)
+  const target = useMemo(() => {
+    const el = gl.domElement
+    const add = el.addEventListener.bind(el)
+    el.addEventListener = ((type: string, fn: EventListener, opt?: AddEventListenerOptions) => {
+      if (type !== 'wheel') add(type, fn, opt)
+    }) as typeof el.addEventListener
+    return el
+  }, [gl])
+  return <CameraControls ref={ref} makeDefault domElement={target} />
 }

@@ -19,7 +19,7 @@ export function NextSteps() {
         {
           [axis]: 1,
           ease: 'none',
-          scrollTrigger: { trigger: '.timeline', start: 'top 75%', end: 'bottom 45%', scrub: 0.6 },
+          scrollTrigger: { trigger: '.timeline', start: 'top 75%', end: 'bottom 45%', scrub: true },
         },
       )
     }, el)

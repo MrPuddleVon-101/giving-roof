@@ -104,8 +104,7 @@
   opacity: 0.9;
 }
 .hs-cloudwrap {
-  opacity: calc(var(--day) * 0.5);
-  mix-blend-mode: screen;
+  opacity: calc(var(--day) * 0.34);
   mask-image: linear-gradient(#000 30%, transparent 62%);
 }
 .cover > img.hs-clouds {
@@ -195,6 +194,9 @@
 }
 .hs-day {
   opacity: calc(1 - var(--night));
+}
+/* the golden-hour grade is only paid for while the sun is low */
+.st-hero[data-low='1'] .hs-day {
   filter: sepia(calc(var(--low) * 0.42)) saturate(calc(1 + var(--low) * 0.35)) brightness(calc(1 - var(--low) * 0.12));
 }
 .hs-fade {
@@ -326,7 +328,7 @@
   width: 0;
   height: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
+  will-change: transform;
 }
 .beam::before {
   content: '';
@@ -334,7 +336,7 @@
   width: 42cqw;
   height: 42cqw;
   margin: -21cqw;
-  background: radial-gradient(circle, rgba(255, 226, 140, 0.75), rgba(255, 196, 70, 0.28) 32%, transparent 66%);
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.6), rgba(255, 206, 90, 0.2) 32%, transparent 66%);
 }
 .cloud-band {
   position: absolute;
@@ -852,10 +854,16 @@ html[data-motion='on'] .dots-fig > *:nth-child(2) {
   margin-top: 8px;
   font-size: 15.5px;
 }
+.sz-stage {
+  position: relative;
+  min-height: 300px;
+}
+/* out of flow, so the size of the drawing can never stretch the section */
 .sz-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 300px;
   touch-action: pan-y;
   cursor: grab;
 }
@@ -1234,7 +1242,7 @@ html[data-motion='on'] .dots-fig > *:nth-child(2) {
     min-height: 0;
     padding: 72px var(--gutter) 76px;
   }
-  .sz-canvas {
+  .sz-stage {
     height: 320px;
   }
   .sz-ranges {
@@ -1725,4 +1733,61 @@ html[data-motion='on'] .dots-fig > *:nth-child(2) {
     font-size: 12px;
     padding: 3px 7px;
   }
+}
+
+/* layers that move stay on the GPU, so nothing is redrawn mid-scroll */
+.day[data-stage='0'] .hs-title,
+.day[data-stage='0'] .hs-fgwrap,
+.day[data-stage='0'] .hs-clouds,
+.stage-in,
+.cloud-band,
+.wf,
+.wf-img img,
+.gp-icon {
+  will-change: transform;
+}
+/* off screen: pictures and canvases release their memory */
+[data-far='true'] .cover,
+[data-far='true'] .hs-sky,
+[data-far='true'] .hs-stars,
+[data-far='true'] .hs-sun,
+[data-far='true'] .stage-word,
+[data-far='true'] .walk-word,
+[data-far='true'] .wf-img,
+[data-far='true'] .mask-img,
+[data-far='true'] .gp-icon,
+[data-far='true'] .gp-num,
+[data-far='true'] .trail,
+[data-far='true'] canvas {
+  visibility: hidden;
+}
+[data-far='true'] .stage-in,
+[data-far='true'] .wf,
+[data-far='true'] .gp-icon {
+  will-change: auto;
+}
+/* scenes fully covered by the next one are not painted */
+.dstage[data-off='true'] {
+  visibility: hidden !important;
+}
+.ya-fill {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+/* held scenes: the wrapper is the scroll distance, the child is sticky inside it */
+.pinw {
+  position: relative;
+}
+/* light mode, switched on only when the machine cannot keep up */
+html[data-lite='true'] .wf-img,
+html[data-lite='true'] .gp-icon,
+html[data-lite='true'] .ch-card,
+html[data-lite='true'] .trail img {
+  box-shadow: none !important;
+}
+html[data-lite='true'] .hs-clouds,
+html[data-lite='true'] .beam,
+html[data-lite='true'] .cloud-band {
+  display: none;
 }

@@ -1,7 +1,8 @@
 import type { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { useLayoutEffect, useRef, useState } from 'react'
-import { gsap, scrollToY, setAnchor } from '../../motion/motion'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { gsap, hold, scrollToY, setAnchor } from '../../motion/motion'
 import { useStore } from '../../state/store'
+import { useInView } from '../scenes/util'
 import { RETURNS } from '../../data/returns'
 import { HeroStage } from './HeroStage'
 import { SunStage } from './SunStage'
@@ -20,9 +21,29 @@ const OPEN = { '--t': 0, '--s': 0, '--r': 0 }
 
 export function Day({ ready }: { ready: boolean }) {
   const root = useRef<HTMLDivElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState(0)
   const st = useRef<ScrollTrigger | null>(null)
   const motionOff = useStore((s) => s.motionOff)
+  const onScreen = useInView(root, 0.01)
+
+  // decode every scene while the opening plays, so none of them stalls the scroll later
+  useEffect(() => {
+    if (!ready) return
+    const imgs = [...root.current!.querySelectorAll('img')]
+    let stop = false
+    const run = async () => {
+      for (const im of imgs) {
+        if (stop) return
+        await im.decode().catch(() => {})
+      }
+    }
+    const id = window.setTimeout(run, 400)
+    return () => {
+      stop = true
+      clearTimeout(id)
+    }
+  }, [ready])
 
   useLayoutEffect(() => {
     const el = root.current!
@@ -35,20 +56,20 @@ export function Day({ ready }: { ready: boolean }) {
         setAnchor('returns', null)
       }
     }
+    const pin = hold(wrap.current!, el, () => innerHeight * TOTAL * 0.62)
     const ctx = gsap.context(() => {
       const ss = gsap.utils.toArray<HTMLElement>('.dstage')
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
         scrollTrigger: {
-          trigger: el,
-          start: 'top top',
-          end: () => `+=${innerHeight * TOTAL * 0.62}`,
-          pin: true,
-          scrub: 0.6,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
+          ...pin.vars,
           onUpdate: (self) => {
             const p = self.progress * TOTAL
+            ss.forEach((s, i) => {
+              // covered once the next scene has fully opened
+              const off = i < 4 && p > FIRST + i * (IN + STAY) + IN + 0.06
+              if ((s.dataset.off === 'true') !== off) s.dataset.off = String(off)
+            })
             setStage(p < FIRST + IN * 0.6 ? 0 : Math.min(4, 1 + Math.floor((p - FIRST - IN * 0.6) / (IN + STAY))))
           },
         },
@@ -79,6 +100,7 @@ export function Day({ ready }: { ready: boolean }) {
     setAnchor('top', () => 0)
     return () => {
       ctx.revert()
+      pin.release()
       st.current = null
       ;['returns', 'top', ...RETURNS.map((r) => `rp-${r.id}`)].forEach((k) => setAnchor(k, null))
     }
@@ -91,12 +113,13 @@ export function Day({ ready }: { ready: boolean }) {
   }
 
   return (
+    <div className="pinw" ref={wrap}>
     <div className="day" ref={root} data-flow={motionOff} data-stage={stage}>
       <HeroStage ready={ready} />
-      <SunStage active={stage === 1} />
-      <RainStage active={stage === 2} />
-      <RootsStage active={stage === 3} />
-      <ReachStage active={stage === 4} />
+      <SunStage active={onScreen && stage === 1} near={onScreen && Math.abs(stage - 1) < 2} />
+      <RainStage active={onScreen && stage === 2} near={onScreen && Math.abs(stage - 2) < 2} />
+      <RootsStage active={onScreen && stage === 3} near={onScreen && Math.abs(stage - 3) < 2} />
+      <ReachStage active={onScreen && stage === 4} near={onScreen && Math.abs(stage - 4) < 2} />
       <nav className="arch-nav" aria-label="Four returns" data-on={stage > 0}>
         {RETURNS.map((r, i) => (
           <button key={r.id} type="button" aria-label={r.name} aria-current={stage === i + 1 ? 'step' : undefined} onClick={() => go(i + 1)}>
@@ -105,6 +128,7 @@ export function Day({ ready }: { ready: boolean }) {
           </button>
         ))}
       </nav>
+    </div>
     </div>
   )
 }

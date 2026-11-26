@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useEffect, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useStore } from '../state/store'
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Campus } from './Campus'
 import { RoofWing, pvYAt } from './RoofWing'
@@ -20,20 +21,66 @@ const RAY_TARGETS: [number, number, number][] = [
   [PV.x1 - 1.5, pvYAt(1) + 0.1, 1],
 ]
 
-export default function Scene({ active, onReady }: { active: boolean; onReady: () => void }) {
-  const narrow = typeof window !== 'undefined' && window.innerWidth < 760
-  const [dpr, setDpr] = useState<number>(Math.min(window.devicePixelRatio || 1, narrow ? 1.5 : 1.75))
+/** Shadows are redrawn only while something that casts one is moving. */
+function ShadowSaver() {
+  const gl = useThree((s) => s.gl)
+  const left = useRef(6)
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    return useStore.subscribe((a, b) => {
+      if (a.explode !== b.explode || a.exploded !== b.exploded) left.current = 120
+    })
+  }, [gl])
+  useFrame(() => {
+    if (left.current > 0) {
+      left.current--
+      gl.shadowMap.needsUpdate = true
+    }
+  })
+  return null
+}
+
+/** Parts are picked by click only, so the model is never hit-tested while the pointer merely moves over it. */
+function ClickOnly() {
+  const gl = useThree((s) => s.gl)
+  const setEvents = useThree((s) => s.setEvents)
+  useEffect(() => {
+    const el = gl.domElement.parentElement ?? gl.domElement
+    const on = () => setEvents({ enabled: true })
+    let t = 0
+    const off = () => {
+      clearTimeout(t)
+      t = window.setTimeout(() => setEvents({ enabled: false }), 400)
+    }
+    setEvents({ enabled: false })
+    el.addEventListener('pointerdown', on, true)
+    window.addEventListener('pointerup', off)
+    return () => {
+      clearTimeout(t)
+      el.removeEventListener('pointerdown', on, true)
+      window.removeEventListener('pointerup', off)
+    }
+  }, [gl, setEvents])
+  return null
+}
+
+export default function Scene({ active, near, onReady }: { active: boolean; near: boolean; onReady: () => void }) {
+  const lite = useStore((s) => s.lite)
+  const [dpr, setDpr] = useState<number>(Math.min(window.devicePixelRatio || 1, 1.25))
   return (
     <Canvas
       shadows
-      dpr={dpr}
+      // far from the screen the model keeps its compiled shaders but almost no pixels
+      dpr={near ? (lite ? Math.min(dpr, 0.8) : dpr) : 0.08}
       frameloop={active ? 'always' : 'never'}
       camera={{ fov: 34, near: 0.5, far: 900, position: CAMS.overview.pos }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
-      onCreated={() => requestAnimationFrame(() => onReady())}
+      onCreated={() => requestAnimationFrame(() => requestAnimationFrame(onReady))}
       aria-hidden="true"
     >
-      <PerformanceMonitor onDecline={() => setDpr(1)} />
+      {near && <PerformanceMonitor onDecline={() => setDpr(1)} />}
+      <ShadowSaver />
+      <ClickOnly />
       <Weather />
       <Environment resolution={64} frames={1}>
         <Lightformer intensity={1.6} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[40, 40, 1]} color="#fffaf0" />

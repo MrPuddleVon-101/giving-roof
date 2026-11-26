@@ -53,7 +53,7 @@ export function Weather() {
   }, [showerKey])
 
   // rain streaks
-  const COUNT = 1400
+  const COUNT = 800
   const rain = useMemo(() => {
     const pos = new Float32Array(COUNT * 6)
     const seed = new Float32Array(COUNT * 3)
@@ -122,7 +122,7 @@ export function Weather() {
         intensity={DAY.sun}
         color="#fff3df"
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1536, 1536]}
         shadow-camera-left={-75}
         shadow-camera-right={75}
         shadow-camera-top={60}

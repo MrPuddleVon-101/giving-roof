@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useLoop } from '../scenes/util'
 import { useStore } from '../../state/store'
 import { SHARE, WINDOWS } from './data'
-import { fitCanvas, inRender } from './util'
+import { useRelease, fitCanvas, inRender } from './util'
 import { StageText } from './StageText'
 
 const W = 1672
@@ -13,7 +13,7 @@ const PAD = 60
 interface Spark { i: number; t: number; v: number; o: number }
 
 /** Twenty arches stand for one verified net saving. Light them, then see where four would go. */
-export function ReachStage({ active }: { active: boolean }) {
+export function ReachStage({ active, near }: { active: boolean; near: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const cv = useRef<HTMLCanvasElement>(null)
   const on = useRef<boolean[]>(WINDOWS.map(() => false))
@@ -26,6 +26,7 @@ export function ReachStage({ active }: { active: boolean }) {
   const sprites = useRef<{ pale: HTMLCanvasElement[]; gold: HTMLCanvasElement[]; niche: HTMLCanvasElement } | null>(null)
   const idle = useRef(99)
   const motionOff = useStore((s) => s.motionOff)
+  useRelease(cv, near || motionOff)
   const full = count === WINDOWS.length
 
   // cut each lit arch (with its spill of light) out of the evening grade
@@ -188,7 +189,7 @@ export function ReachStage({ active }: { active: boolean }) {
         <div className="hs-stars on" aria-hidden="true" />
         <p className="stage-word sw-reach" aria-hidden="true">Reach</p>
         <div className="cover" ref={box} style={{ ['--fx' as string]: 0.52, ['--fy' as string]: 0.6 }}>
-          <img src="img/day/hero-night.webp" alt="The same campus render graded to evening, with its arched windows dark until lit." loading="lazy" draggable={false} />
+          <img src="img/day/hero-night.webp" alt="The same campus render graded to evening, with its arched windows dark until lit." decoding="async" draggable={false} />
           <canvas ref={cv} aria-hidden="true" />
         </div>
         <StageText id="reach" light hint="Sweep the façade. 20 windows stand for one verified net saving." />

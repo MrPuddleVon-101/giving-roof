@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from '../state/store'
 import { RETURNS, OVERVIEW_PANEL, MODE_LABEL, type Mode, returnById } from '../data/returns'
 import { HOTSPOTS } from '../data/hotspots'
@@ -66,9 +67,11 @@ export function Explorer() {
   const [webgl] = useState(hasWebGL)
   const [ready, setReady] = useState(false)
   const [inView, setInView] = useState(false)
+  const [nearby, setNearby] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth > 900)
-  const s = useStore()
+  // everything except the per-frame scroll value, so scrolling does not re-render this section
+  const s = useStore(useShallow(({ reveal: _reveal, ...rest }) => rest))
   useReveal(root)
 
   const useStatic = !webgl || s.staticView
@@ -79,13 +82,26 @@ export function Explorer() {
     if (!el) return
     const io = new IntersectionObserver(
       ([e]) => {
-        setInView(e.isIntersecting)
+        setNearby(e.isIntersecting)
         if (e.isIntersecting) setMounted(true)
       },
-      { rootMargin: '600px 0px' },
+      { rootMargin: '70% 0px' },
     )
+    const vis = new IntersectionObserver(([e]) => setInView(e.isIntersecting))
     io.observe(el)
-    return () => io.disconnect()
+    vis.observe(el)
+    // build and compile the model while nothing else is happening, so reaching it never stalls the scroll
+    let idle = 0
+    const later = window.setTimeout(() => {
+      if ('requestIdleCallback' in window) idle = requestIdleCallback(() => setMounted(true), { timeout: 15000 })
+      else setMounted(true)
+    }, 6000)
+    return () => {
+      clearTimeout(later)
+      if (idle) cancelIdleCallback(idle)
+      io.disconnect()
+      vis.disconnect()
+    }
   }, [])
 
   // scroll chapters drive the model; manual input still works between them
@@ -152,7 +168,7 @@ export function Explorer() {
                 <div className="canvas-wrap" role="img" aria-label={`Interactive 3D concept model of the campus and proposed roof wing, showing ${MODE_LABEL[s.mode]}. The same information is in the panel and chapters as text.`}>
                   {mounted && (
                     <Suspense fallback={null}>
-                      <Scene active={inView} onReady={() => setReady(true)} />
+                      <Scene active={inView || !ready} near={nearby} onReady={() => setReady(true)} />
                     </Suspense>
                   )}
                 </div>

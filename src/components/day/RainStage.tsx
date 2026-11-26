@@ -1,7 +1,7 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import { useLoop, clamp } from '../scenes/util'
 import { useStore } from '../../state/store'
-import { fitCanvas } from './util'
+import { useRelease, fitCanvas } from './util'
 import { StageText } from './StageText'
 
 const W = 1672
@@ -37,12 +37,26 @@ const pFlush = mk(FLUSH)
 const pOver = mk(OVER)
 const rnd = (a: number, b: number) => a + Math.random() * (b - a)
 
+let beadImg: HTMLCanvasElement | null = null
+function beadSprite() {
+  if (beadImg) return beadImg
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const g = c.getContext('2d')!
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  gr.addColorStop(0, 'rgba(255,255,255,1)')
+  gr.addColorStop(0.45, 'rgba(150,225,255,.7)')
+  gr.addColorStop(1, 'rgba(80,190,255,0)')
+  g.fillStyle = gr
+  g.fillRect(0, 0, 64, 64)
+  return (beadImg = c)
+}
 interface Drop { x: number; y: number; z: number; v: number }
 interface Splash { x: number; y: number; a: number; s: number }
 interface Pulse { d: number; end: number; wc: number }
 
 /** Press and hold to bring the storm. The water goes exactly where the render's pipes go. */
-export function RainStage({ active }: { active: boolean }) {
+export function RainStage({ active, near }: { active: boolean; near: boolean }) {
   const cv = useRef<HTMLCanvasElement>(null)
   const dark = useRef<HTMLDivElement>(null)
   const [hold, setHold] = useState(false)
@@ -50,11 +64,12 @@ export function RainStage({ active }: { active: boolean }) {
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(-1)
   const motionOff = useStore((s) => s.motionOff)
+  useRelease(cv, near || motionOff)
   const sim = useRef({
     power: 0.3,
     lvl: 0.34,
     first: 0.25,
-    drops: Array.from({ length: 620 }, (): Drop => ({ x: rnd(-200, W + 100), y: rnd(-H, H), z: rnd(0.25, 1), v: rnd(0.8, 1.2) })),
+    drops: Array.from({ length: 460 }, (): Drop => ({ x: rnd(-200, W + 100), y: rnd(-H, H), z: rnd(0.25, 1), v: rnd(0.8, 1.2) })),
     splash: [] as Splash[],
     run: Array.from({ length: 46 }, () => ({ u: Math.random(), v: Math.random(), s: rnd(0.4, 1) })),
     pipe: 0,
@@ -116,13 +131,11 @@ export function RainStage({ active }: { active: boolean }) {
     g.fillStyle = 'rgba(90,190,235,.55)'
     g.fillRect(896, 570 - 84 * s.first, 43, 84 * s.first)
 
+    const sprite = beadSprite()
     const bead = (x: number, y: number, r: number, a: number) => {
-      const gr = g.createRadialGradient(x, y, 0, x, y, r)
-      gr.addColorStop(0, `rgba(255,255,255,${a})`)
-      gr.addColorStop(0.45, `rgba(150,225,255,${a * 0.7})`)
-      gr.addColorStop(1, 'rgba(80,190,255,0)')
-      g.fillStyle = gr
-      g.fillRect(x - r, y - r, r * 2, r * 2)
+      g.globalAlpha = Math.max(0, Math.min(1, a))
+      g.drawImage(sprite, x - r, y - r, r * 2, r * 2)
+      g.globalAlpha = 1
     }
     s.pipe += dt * (120 + s.power * 380)
     const n = Math.round(5 + s.power * 17)
@@ -227,11 +240,11 @@ export function RainStage({ active }: { active: boolean }) {
     <section className="dstage st-rain" id="rp-rain" aria-labelledby="h-rain" onPointerDown={down} onPointerUp={up} onPointerCancel={up} onPointerLeave={up} data-hold={hold}>
       <div className="stage-in">
         <div className="cover" style={{ ['--fx' as string]: 0.78, ['--fy' as string]: 0.4 }}>
-          <img src="img/rain-1672.webp" alt="Concept render in the rain: a gutter and screened downpipe feed a sealed blue tank at ground level; a separate blue pipe rises to three toilets; a grey overflow pipe empties into a planted rain garden." loading="lazy" draggable={false} />
+          <img src="img/rain-1672.webp" alt="Concept render in the rain: a gutter and screened downpipe feed a sealed blue tank at ground level; a separate blue pipe rises to three toilets; a grey overflow pipe empties into a planted rain garden." decoding="async" draggable={false} />
         </div>
         <p className="stage-word sw-rain" aria-hidden="true">Rain</p>
         <div className="cover" style={{ ['--fx' as string]: 0.78, ['--fy' as string]: 0.4 }}>
-          <img src="img/day/rain-fg.webp" alt="" loading="lazy" draggable={false} />
+          <img src="img/day/rain-fg.webp" alt="" decoding="async" draggable={false} />
           <div className="rain-dark" ref={dark} aria-hidden="true" />
           <canvas ref={cv} aria-hidden="true" />
           <span className="tag" style={{ left: '51%', top: '39%' }}>Leaf screen</span>

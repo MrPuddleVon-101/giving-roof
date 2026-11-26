@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './state/store'
-import { prefersReducedMotion, startSmoothScroll, stopSmoothScroll, finishAllReveals, ScrollTrigger } from './motion/motion'
+import { prefersReducedMotion, watchFrames, finishAllReveals, ScrollTrigger } from './motion/motion'
 import { Loader } from './components/Loader'
 import { Cursor } from './components/Cursor'
 import { Masthead } from './components/Masthead'
 import { Day } from './components/day/Day'
 import { useGlobalFx } from './motion/useGlobalFx'
+import { useFar } from './motion/useFar'
 import { Explorer } from './components/Explorer'
 import { MaskReveal } from './components/MaskReveal'
 import { PosterGallery } from './components/PosterGallery'
@@ -36,6 +37,7 @@ export default function App() {
   const motionOff = useStore((s) => s.motionOff)
   const [ready, setReady] = useState(false)
   useGlobalFx()
+  useFar()
 
   useEffect(() => {
     document.documentElement.dataset.motion = motionOff ? 'off' : 'on'
@@ -44,11 +46,9 @@ export default function App() {
     } catch {
       /* storage unavailable */
     }
-    if (motionOff) {
-      stopSmoothScroll()
-      finishAllReveals()
-    } else startSmoothScroll()
+    if (motionOff) finishAllReveals()
     ScrollTrigger.refresh()
+    return motionOff ? undefined : watchFrames()
   }, [motionOff])
 
   useEffect(() => {

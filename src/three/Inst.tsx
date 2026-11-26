@@ -9,6 +9,21 @@ export interface InstItem {
   c?: string
 }
 
+// An instanced mesh must not share a material with a plain one: three.js would swap
+// shader programs back and forth on every draw. Each use gets its own copy.
+const variants = new Map<THREE.Material, { plain?: THREE.Material; tinted?: THREE.Material }>()
+export function instMaterial(m: THREE.Material, tinted: boolean) {
+  let v = variants.get(m)
+  if (!v) variants.set(m, (v = {}))
+  const k = tinted ? 'tinted' : 'plain'
+  return (v[k] ??= m.clone())
+}
+/** every copy of a material, so highlights reach all of them */
+export function copiesOf(m: THREE.Material) {
+  const v = variants.get(m)
+  return v ? ([v.plain, v.tinted].filter(Boolean) as THREE.Material[]) : []
+}
+
 const dummy = new THREE.Object3D()
 const col = new THREE.Color()
 
@@ -31,6 +46,7 @@ export function Inst({
   name?: string
 }) {
   const ref = useRef<THREE.InstancedMesh>(null)
+  const mat = instMaterial(material, items.some((i) => i.c))
   useLayoutEffect(() => {
     const m = ref.current
     if (!m) return
@@ -51,7 +67,7 @@ export function Inst({
   return (
     <instancedMesh
       ref={ref}
-      args={[geometry, material, items.length]}
+      args={[geometry, mat, items.length]}
       castShadow={cast}
       receiveShadow={receive}
       onClick={onClick}

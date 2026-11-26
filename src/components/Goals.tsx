@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { SDGS } from '../data/sdgs'
 import { sourceById } from '../data/sources'
-import { gsap } from '../motion/motion'
+import { gsap, hold } from '../motion/motion'
 import { useStore } from '../state/store'
 import { Ext } from './Icons'
 
@@ -11,6 +11,7 @@ const ICON: Record<number, string> = { 4: '04', 6: '06', 7: '07', 12: '12' }
 export function Goals() {
   const root = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
   const motionOff = useStore((s) => s.motionOff)
 
   useLayoutEffect(() => {
@@ -20,15 +21,17 @@ export function Goals() {
     const mm = gsap.matchMedia()
     mm.add('(min-width: 901px)', () => {
       const dist = () => tr.scrollWidth - window.innerWidth
+      const pin = hold(wrap.current!, el, dist)
       const tw = gsap.to(tr, {
         x: () => -dist(),
         ease: 'none',
-        scrollTrigger: { trigger: el, start: 'top top', end: () => `+=${dist()}`, pin: true, scrub: 0.8, invalidateOnRefresh: true, anticipatePin: 1 },
+        scrollTrigger: pin.vars,
       })
       gsap.utils.toArray<HTMLElement>('.gp').forEach((p) => {
         gsap.fromTo(p.querySelector('.gp-icon'), { rotateY: -70, scale: 0.6 }, { rotateY: 0, scale: 1, ease: 'none', scrollTrigger: { trigger: p, containerAnimation: tw, start: 'left right', end: 'left 30%', scrub: true } })
         gsap.fromTo(p.querySelector('.gp-num'), { xPercent: 40 }, { xPercent: -30, ease: 'none', scrollTrigger: { trigger: p, containerAnimation: tw, start: 'left right', end: 'right left', scrub: true } })
       })
+      return pin.release
     })
     mm.add('(max-width: 900px)', () => {
       gsap.utils.toArray<HTMLElement>('.gp-icon').forEach((ic) => {
@@ -39,6 +42,7 @@ export function Goals() {
   }, [motionOff])
 
   return (
+    <div className="pinw" ref={wrap}>
     <section className="goals2" id="goals" ref={root} aria-labelledby="goals-title">
       <div className="gp-track" ref={track}>
         <div className="gp-intro">
@@ -66,5 +70,6 @@ export function Goals() {
       </div>
       <p className="gp-credit">SDG icons: United Nations. Used for information only; this project is not endorsed by the UN.</p>
     </section>
+    </div>
   )
 }

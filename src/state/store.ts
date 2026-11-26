@@ -18,6 +18,7 @@ interface State {
   camCmd: { name: CamName | 'hotspot' | 'reset'; n: number }
   zoomCmd: { dir: 1 | -1; n: number }
   sourcesOpen: boolean
+  lite: boolean // the machine is struggling: drop decoration
   setMode: (m: Mode, cam?: CamName | null) => void
   setHotspot: (id: string | null) => void
   setWeather: (w: Weather) => void
@@ -46,6 +47,7 @@ export const useStore = create<State>((set, get) => ({
   camCmd: { name: 'overview', n: 0 },
   zoomCmd: { dir: 1, n: 0 },
   sourcesOpen: false,
+  lite: false,
   setMode: (m, cam) => {
     const s = get()
     const extra: Partial<State> = {}

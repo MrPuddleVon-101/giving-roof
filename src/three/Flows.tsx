@@ -54,6 +54,7 @@ export function FlowDots({
   )
   const state = useRef({ t: 0, vis: 0 })
   const len = useMemo(() => curve.getLength(), [curve])
+  const table = useMemo(() => curve.getSpacedPoints(160), [curve])
   useFrame((_, dt) => {
     const m = ref.current
     if (!m) return
@@ -68,7 +69,9 @@ export function FlowDots({
     if (!motionOff) s.t += (dt * speed * 30) / len
     for (let i = 0; i < count; i++) {
       const u = (s.t + i / count) % 1
-      curve.getPointAt(u, dummy.position)
+      const q = u * 160
+      const k = Math.floor(q)
+      dummy.position.lerpVectors(table[k], table[Math.min(160, k + 1)], q - k)
       dummy.scale.setScalar(size * (0.6 + 0.4 * s.vis))
       dummy.updateMatrix()
       m.setMatrixAt(i, dummy.matrix)

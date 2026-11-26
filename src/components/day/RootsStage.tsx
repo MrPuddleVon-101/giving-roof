@@ -6,7 +6,7 @@ import { isMouse } from './util'
 
 const IW = 1800
 const IH = 1627
-const MW = 360
+const MW = 400
 const MH = Math.round((MW * IH) / IW)
 
 const VS = 'attribute vec2 p;varying vec2 v;void main(){v=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}'
@@ -40,7 +40,7 @@ const TAGS = [
 ]
 
 /** A line drawing of the planted roof. Brush it and the real thing grows out of the paper. */
-export function RootsStage({ active }: { active: boolean }) {
+export function RootsStage({ active }: { active: boolean; near: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const cv = useRef<HTMLCanvasElement>(null)
   const gl = useRef<{ draw: (t: number) => void } | null>(null)
@@ -61,7 +61,7 @@ export function RootsStage({ active }: { active: boolean }) {
   useEffect(() => {
     const c = cv.current
     if (motionOff || !c) return
-    const ctx = c.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: true })
+    const ctx = c.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' })
     if (!ctx) return setFail(true)
     const g = ctx
     const sh = (type: number, src: string) => {
@@ -108,15 +108,15 @@ export function RootsStage({ active }: { active: boolean }) {
       const k = document.createElement('canvas')
       k.width = MW * 2
       k.height = MH * 2
-      return k.getContext('2d', { willReadFrequently: true })!
+      return k.getContext('2d')!
     }
     const s = st.current
     s.base = mkc()
     s.mask = mkc()
     const size = () => {
       const r = c.getBoundingClientRect()
-      const k = Math.min(devicePixelRatio || 1, 1.5)
-      c.width = Math.min(1800, Math.round(r.width * k))
+      const k = Math.min(devicePixelRatio || 1, 1.25)
+      c.width = Math.min(1500, Math.round(r.width * k))
       c.height = Math.round((c.width * IH) / IW)
       g.viewport(0, 0, c.width, c.height)
     }
@@ -184,7 +184,7 @@ export function RootsStage({ active }: { active: boolean }) {
     s.stamps.push({ x: u * MW * 2, y: v * MH * 2, r: 4, R: R * MW * 2 })
   }
 
-  useLoop(active && !motionOff && !fail, (dt, t) => {
+  useLoop(active && !motionOff && !fail, (dt) => {
     const s = st.current
     if (!gl.current || !s.base) return
     s.idle += dt
@@ -198,6 +198,7 @@ export function RootsStage({ active }: { active: boolean }) {
         plant(0.97 - k * 0.62 + Math.sin(s.tick * 1.9) * 0.05, 0.42 + Math.sin(k * 5.2) * 0.2 + Math.cos(s.tick * 2.3) * 0.05, 0.05 + Math.random() * 0.035)
       }
     }
+    if (!s.stamps.length) return // nothing growing: leave the last picture up
     for (const p of s.stamps) p.r += (p.R - p.r) * Math.min(1, dt * 2.6)
     // settle finished growth into the base layer
     const done = s.stamps.filter((p) => p.R - p.r < 1)
@@ -206,13 +207,11 @@ export function RootsStage({ active }: { active: boolean }) {
       done.forEach((p) => stamp(s.base!, p.x, p.y, p.R))
       s.stamps = s.stamps.filter((p) => p.R - p.r >= 1)
     }
-    gl.current.draw(t)
-    const m = s.mask!
-    if (Math.random() < 0.15)
-      setSeen((old) => {
-        const nw = TAGS.map((g, i) => old[i] || m.getImageData(Math.floor(g.x * MW * 2), Math.floor(g.y * MH * 2), 1, 1).data[0] > 130)
-        return nw.some((x, i) => x !== old[i]) ? nw : old
-      })
+    gl.current.draw(0)
+    setSeen((old) => {
+      const nw = TAGS.map((g, i) => old[i] || s.stamps.some((p) => Math.hypot(g.x * MW * 2 - p.x, g.y * MH * 2 - p.y) < p.r * 0.5))
+      return nw.some((x, i) => x !== old[i]) ? nw : old
+    })
   })
 
   const brush = (e: PointerEvent) => {
@@ -232,7 +231,7 @@ export function RootsStage({ active }: { active: boolean }) {
     <section className="dstage st-roots" id="rp-roots" aria-labelledby="h-roots" onPointerMove={brush} onPointerDown={brush}>
       <div className="stage-in">
         <div className="cover" ref={box} style={{ ['--ar' as string]: IW / IH, ['--fx' as string]: 0.7, ['--fy' as string]: 0.6 }}>
-          <img src="img/day/beds.webp" alt="Concept image: raised beds of leafy greens and baskets of herbs along a rooftop walkway, with shade planting under a solar canopy and a canteen below." loading="lazy" draggable={false} />
+          <img src="img/day/beds.webp" alt="Concept image: raised beds of leafy greens and baskets of herbs along a rooftop walkway, with shade planting under a solar canopy and a canteen below." decoding="async" draggable={false} />
           {!fail && !motionOff && <canvas ref={cv} aria-hidden="true" />}
           {TAGS.map((g, i) => (
             <span key={g.label} className="tag" data-show={seen[i] || motionOff} style={{ left: `${g.x * 100}%`, top: `${g.y * 100}%` }}>

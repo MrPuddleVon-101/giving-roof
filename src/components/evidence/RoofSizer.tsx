@@ -5,49 +5,67 @@ import { useStore } from '../../state/store'
 
 // Two things you can physically resize. Every number is our scenario, not a result.
 
-function useCanvasLoop(cv: React.RefObject<HTMLCanvasElement | null>, deps: unknown[], draw: (g: CanvasRenderingContext2D, w: number, h: number, dt: number, t: number) => void) {
+function useCanvasLoop(cv: React.RefObject<HTMLCanvasElement | null>, deps: unknown[], draw: (g: CanvasRenderingContext2D, w: number, h: number, dt: number) => boolean) {
   const inView = useInView(cv, 0.1)
   const motionOff = useStore((s) => s.motionOff)
   const fn = useRef(draw)
+  const wakeRef = useRef(() => {})
   fn.current = draw
   useEffect(() => {
     const c = cv.current!
     const g = c.getContext('2d')!
     let w = 0, h = 0, raf = 0, last = performance.now()
+    // true only when the drawing really changed size
     const size = () => {
-      const r = c.getBoundingClientRect()
-      const k = Math.min(devicePixelRatio || 1, 2)
-      w = r.width
-      h = r.height
-      c.width = w * k
-      c.height = h * k
+      const box = c.parentElement!
+      const k = Math.min(devicePixelRatio || 1, 1.5)
+      const pw = Math.round(box.clientWidth * k)
+      const ph = Math.round(box.clientHeight * k)
+      if (c.width === pw && c.height === ph) return false
+      w = box.clientWidth
+      h = box.clientHeight
+      c.width = pw
+      c.height = ph
       g.setTransform(k, 0, 0, k, 0, 0)
+      return true
     }
-    const frame = (dt: number, t: number) => {
+    const frame = (dt: number) => {
       g.clearRect(0, 0, w, h)
-      fn.current(g, w, h, dt, t)
+      return fn.current(g, w, h, dt)
     }
+    c.width = c.height = 0
     size()
+    frame(0)
+    // watch the frame around the canvas, never the canvas: its own pixels must not be able to resize it
     const ro = new ResizeObserver(() => {
-      size()
-      frame(10, 0)
+      if (size()) frame(motionOff ? 10 : 0)
     })
-    ro.observe(c)
-    if (motionOff) frame(10, 0)
+    ro.observe(c.parentElement!)
+    if (motionOff) frame(10)
     else if (inView) {
+      // runs until the picture settles; wake() starts it again
       const loop = (now: number) => {
-        frame(Math.min(0.04, (now - last) / 1000), now / 1000)
+        const busy = frame(Math.min(0.04, (now - last) / 1000))
         last = now
+        raf = busy ? requestAnimationFrame(loop) : 0
+      }
+      wakeRef.current = () => {
+        if (raf) return
+        last = performance.now()
         raf = requestAnimationFrame(loop)
       }
-      raf = requestAnimationFrame(loop)
+      wakeRef.current()
     }
     return () => {
       cancelAnimationFrame(raf)
+      wakeRef.current = () => {}
       ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inView, motionOff, ...(motionOff ? deps : [])])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => wakeRef.current(), deps)
+  return wakeRef
 }
 
 const face = (g: CanvasRenderingContext2D, pts: number[][], fill: string, stroke?: string) => {
@@ -69,7 +87,8 @@ function SolarRoof({ kwp, onKwp }: { kwp: number; onKwp: (v: number) => void }) 
   const ptr = useRef({ x: -1e3, y: -1e3 })
   const geo = useRef({ cx: 0, top: 0, tw: 1 })
   const held = useRef(false)
-  useCanvasLoop(cv, [kwp], (g, w, h, dt, t) => {
+  const wake = useCanvasLoop(cv, [kwp], (g, w, h, dt) => {
+    let busy = false
     const tw = Math.min((w * 0.94) / 20, (h * 0.8) / 10.6)
     const th = tw / 2
     const cx = w / 2
@@ -85,6 +104,8 @@ function SolarRoof({ kwp, onKwp }: { kwp: number; onKwp: (v: number) => void }) 
       for (let i = 0; i < 20; i++) {
         const n = j * 20 + i
         const goal = n < kwp ? 1 : 0
+        if (Math.abs(goal - z.current[n]) > 0.004) busy = true
+        else z.current[n] = goal
         z.current[n] += (goal - z.current[n]) * Math.min(1, dt * (5 + (n % 5)))
         const v = z.current[n]
         if (v < 0.02) continue
@@ -97,14 +118,16 @@ function SolarRoof({ kwp, onKwp }: { kwp: number; onKwp: (v: number) => void }) 
         const down = (q: number[]) => [q[0], q[1] + 3]
         face(g, [e, d, down(d), down(e)], '#0d1830')
         face(g, [b, d, down(d), down(b)], '#0a1226')
-        const sh = 0.5 + 0.5 * Math.sin(t * 1.1 - (i + j) * 0.22)
+        const sh = 0.5 + 0.5 * Math.sin((i + j) * 0.22)
         face(g, [a, b, d, e], `rgb(${24 + near * 190 + sh * 14},${48 + near * 130 + sh * 26},${110 - near * 60 + sh * 40})`, 'rgba(255,255,255,.28)')
         g.globalAlpha = 1
       }
+    return busy
   })
   const hit = (e: PointerEvent) => {
     const r = cv.current!.getBoundingClientRect()
     ptr.current = { x: e.clientX - r.left, y: e.clientY - r.top }
+    wake.current()
     if (!held.current) return
     const { cx, top, tw } = geo.current
     const dx = (ptr.current.x - cx) / (tw / 2)
@@ -120,6 +143,7 @@ function SolarRoof({ kwp, onKwp }: { kwp: number; onKwp: (v: number) => void }) 
     onKwp(Math.max(20, Math.min(400, kwp + d)))
   }
   return (
+    <div className="sz-stage">
     <canvas
       ref={cv}
       className="sz-canvas"
@@ -140,8 +164,12 @@ function SolarRoof({ kwp, onKwp }: { kwp: number; onKwp: (v: number) => void }) 
       onPointerMove={hit}
       onPointerUp={() => (held.current = false)}
       onPointerCancel={() => (held.current = false)}
-      onPointerLeave={() => (ptr.current = { x: -1e3, y: -1e3 })}
+      onPointerLeave={() => {
+        ptr.current = { x: -1e3, y: -1e3 }
+        wake.current()
+      }}
     />
+    </div>
   )
 }
 
@@ -151,7 +179,8 @@ function WaterStack({ m3 }: { m3: number }) {
   const v = useRef(new Float32Array(800))
   const ptr = useRef({ x: -1e3, y: -1e3 })
   const n = Math.min(800, Math.round(m3 / 10))
-  useCanvasLoop(cv, [n], (g, w, h, dt, t) => {
+  const wake = useCanvasLoop(cv, [n], (g, w, h, dt) => {
+    let busy = false
     const S = 8
     const layers = Math.max(1, Math.ceil(n / (S * S)))
     const tw = Math.min((w * 0.9) / S, (h * 0.94) / (S / 2 + Math.max(4, layers) * 0.52))
@@ -164,6 +193,8 @@ function WaterStack({ m3 }: { m3: number }) {
     g.lineWidth = 1
     for (let q = 0; q < 800; q++) {
       const goal = q < n ? 1 : 0
+      if (Math.abs(goal - v.current[q]) > 0.004) busy = true
+      else v.current[q] = goal
       v.current[q] += (goal - v.current[q]) * Math.min(1, dt * (3 + (q % 9) * 0.7))
       const a = v.current[q]
       if (a < 0.03) continue
@@ -173,7 +204,7 @@ function WaterStack({ m3 }: { m3: number }) {
       const i = r % S
       const c = P(i + 0.5, j + 0.5, (layer + 0.5) * cubeH)
       const near = Math.max(0, 1 - Math.hypot(c[0] - ptr.current.x, c[1] - ptr.current.y) / 80)
-      const k = layer * cubeH + (1 - a) * 150 + near * 14 + Math.sin(t * 1.6 + (i + j) * 0.5) * 1.4
+      const k = layer * cubeH + (1 - a) * 150 + near * 14
       const p = 0.05
       const A = P(i + p, j + p, k + cubeH), B = P(i + 1 - p, j + p, k + cubeH), D = P(i + 1 - p, j + 1 - p, k + cubeH), E = P(i + p, j + 1 - p, k + cubeH)
       const lo = (o: number[]) => [o[0], o[1] + cubeH * 0.94]
@@ -183,8 +214,10 @@ function WaterStack({ m3 }: { m3: number }) {
       face(g, [A, B, D, E], near > 0.1 ? '#ffffff' : '#dff4ff')
       g.globalAlpha = 1
     }
+    return busy
   })
   return (
+    <div className="sz-stage">
     <canvas
       ref={cv}
       className="sz-canvas"
@@ -193,9 +226,14 @@ function WaterStack({ m3 }: { m3: number }) {
       onPointerMove={(e) => {
         const r = cv.current!.getBoundingClientRect()
         ptr.current = { x: e.clientX - r.left, y: e.clientY - r.top }
+        wake.current()
       }}
-      onPointerLeave={() => (ptr.current = { x: -1e3, y: -1e3 })}
+      onPointerLeave={() => {
+        ptr.current = { x: -1e3, y: -1e3 }
+        wake.current()
+      }}
     />
+    </div>
   )
 }
 

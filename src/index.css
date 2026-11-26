@@ -286,8 +286,8 @@ html.cursor-in .cursor-dot {
   height: 30px;
   margin: -15px 0 0 -15px;
   border-radius: 50%;
-  background: var(--green);
-  mix-blend-mode: multiply;
+  background: rgba(1, 133, 57, 0.82);
+  will-change: transform;
   display: grid;
   place-items: center;
 }
@@ -298,12 +298,10 @@ html.cursor-in .cursor-dot {
   letter-spacing: 0.04em;
 }
 .cursor-ring[data-mode='drag'] {
-  mix-blend-mode: normal;
   background: rgba(1, 133, 57, 0.92);
 }
 .cursor-ring[data-mode='hover'] {
   background: rgba(1, 133, 57, 0.35);
-  mix-blend-mode: multiply;
 }
 .cursor-ring.down {
   filter: brightness(0.8);

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { gsap } from '../motion/motion'
+import { gsap, hold } from '../motion/motion'
 import { useStore } from '../state/store'
 
 interface Frame {
@@ -23,6 +23,7 @@ const FRAMES: Frame[] = [
 export function PosterGallery() {
   const root = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState<number | null>(null)
   const motionOff = useStore((s) => s.motionOff)
 
@@ -33,12 +34,13 @@ export function PosterGallery() {
     const mm = gsap.matchMedia()
     mm.add('(min-width: 901px)', () => {
       const dist = () => tr.scrollWidth - window.innerWidth
+      const pin = hold(wrap.current!, el, dist)
       const tw = gsap.to(tr, {
         x: () => -dist(),
         ease: 'none',
-        scrollTrigger: { trigger: el, start: 'top top', end: () => `+=${dist()}`, pin: true, scrub: 0.8, invalidateOnRefresh: true, anticipatePin: 1 },
+        scrollTrigger: pin.vars,
       })
-      gsap.to('.walk-word', { xPercent: -40, ease: 'none', scrollTrigger: { trigger: el, start: 'top top', end: () => `+=${dist()}`, scrub: true } })
+      gsap.to('.walk-word', { xPercent: -40, ease: 'none', scrollTrigger: pin.vars })
       gsap.utils.toArray<HTMLElement>('.wf').forEach((f, i) => {
         gsap.fromTo(
           f,
@@ -47,6 +49,7 @@ export function PosterGallery() {
         )
         if (f.classList.contains('wf-photo')) gsap.fromTo(f.querySelector('img'), { xPercent: -8 }, { xPercent: 8, ease: 'none', scrollTrigger: { trigger: f, containerAnimation: tw, start: 'left right', end: 'right left', scrub: true } })
       })
+      return pin.release
     })
     return () => mm.revert()
   }, [motionOff])
@@ -68,6 +71,7 @@ export function PosterGallery() {
   }, [open])
 
   return (
+    <div className="pinw" ref={wrap}>
     <section className="walk" id="walk" ref={root} aria-labelledby="walk-title">
       <p className="walk-word" aria-hidden="true">
         Walk the roof
@@ -103,5 +107,6 @@ export function PosterGallery() {
         </div>
       )}
     </section>
+    </div>
   )
 }

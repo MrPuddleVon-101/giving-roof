@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { M } from './materials'
+import { copiesOf } from './Inst'
 import { useStore } from '../state/store'
 import type { Mode } from '../data/returns'
 
@@ -33,6 +34,7 @@ export function Highlighter() {
       if (hotspot && cfg.hotspot?.[hotspot] != null) target = Math.max(target, cfg.hotspot[hotspot])
       const goal = target * (target > (cfg.base ?? 0) ? pulse : 1)
       mat.emissiveIntensity = motionOff ? goal : THREE.MathUtils.damp(mat.emissiveIntensity, goal, 6, dt)
+      for (const c of copiesOf(mat)) (c as THREE.MeshStandardMaterial).emissiveIntensity = mat.emissiveIntensity
     }
   })
   return null

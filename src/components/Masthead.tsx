@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { anchorY, gsap, motionOn, scrollToId, scrollToY } from '../motion/motion'
+import { anchorY, gsap, motionOn, scrollToId, scrollToY, ScrollTrigger } from '../motion/motion'
 import { Ext } from './Icons'
 
 const NAV = [
@@ -40,6 +40,16 @@ export function Masthead() {
   useEffect(() => {
     let last = window.scrollY
     let raf = 0
+    let ys: (number | null)[] = []
+    let max = 1
+    let lit = -1
+    const measure = () => {
+      ys = NAV.map((n) => anchorY(n.id))
+      max = Math.max(1, document.documentElement.scrollHeight - innerHeight)
+    }
+    measure()
+    const lines = [...dial.current!.querySelectorAll('line')]
+    const hand = dial.current!.querySelector('g')!
     const read = () => {
       raf = 0
       const y = window.scrollY
@@ -47,18 +57,17 @@ export function Masthead() {
       else if (y > last + 4) setFolded(true)
       else if (y < last - 8) setFolded(false)
       last = y
-      const p = y / Math.max(1, document.documentElement.scrollHeight - innerHeight)
-      const d = dial.current
-      if (d) {
-        const n = Math.round(p * 60)
-        d.querySelectorAll('line').forEach((l, i) => l.toggleAttribute('data-on', i < n))
-        d.querySelector('g')!.setAttribute('transform', `rotate(${p * 360} 50 50)`)
+      const p = y / max
+      const n = Math.round(p * 60)
+      if (n !== lit) {
+        lit = n
+        lines.forEach((l, i) => l.toggleAttribute('data-on', i < n))
+        hand.setAttribute('transform', `rotate(${n * 6} 50 50)`)
       }
       let cur = 'top'
-      for (const n of NAV) {
-        const a = anchorY(n.id)
-        if (a != null && a <= y + innerHeight * 0.4) cur = n.id
-      }
+      ys.forEach((a, i) => {
+        if (a != null && a <= y + innerHeight * 0.4) cur = NAV[i].id
+      })
       setActive(cur)
     }
     const on = () => {
@@ -66,7 +75,9 @@ export function Masthead() {
     }
     read()
     window.addEventListener('scroll', on, { passive: true })
+    ScrollTrigger.addEventListener('refresh', measure)
     return () => {
+      ScrollTrigger.removeEventListener('refresh', measure)
       cancelAnimationFrame(raf)
       window.removeEventListener('scroll', on)
     }
